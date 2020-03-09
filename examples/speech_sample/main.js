@@ -1,5 +1,6 @@
 let utils = new Utils();
 let arkFile = 'audio/dev93_10.ark';
+let referenceArkFile = 'audio/dev93_scores_10.ark';
 utils.updateProgress = updateProgress;    //register updateProgress function if progressBar element exist
 let front = false;
 
@@ -61,6 +62,12 @@ const utilsPredict = async () => {
     await showProgress('done', 'done', 'done');
     showResults();
     updateResult(ret);
+
+    await utils.loadReferenceArk(utils.referenceTensor,referenceArkFile);
+    await utils.initError(utils.totalError);
+    await utils.compareScores(ret.result,utils.referenceTensor,1,3425);
+    await utils.UpdateScoreError(utils.frameError,utils.totalError);
+    await utils.printReferenceCompareResults(utils.totalError,1) 
   }
   catch (e) {
     errorHandler(e);

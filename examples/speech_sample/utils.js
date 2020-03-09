@@ -5,6 +5,7 @@ class Utils {
     this.model;
     this.inputTensor;
     this.outputTensor;
+    this.referenceTensor;
     this.modelFile;
     this.labelsFile;
     this.inputSize;
@@ -18,6 +19,8 @@ class Utils {
     this.loaded = false;
     this.resolveGetRequiredOps = null;
     this.outstandingRequest = null;
+    this.frameError = {};
+    this.totalError = {};
   }
 
   async loadModel(model) {
@@ -45,6 +48,7 @@ class Utils {
     }
     this.inputTensor = new typedArray(this.inputSize.reduce((a, b) => a * b));
     this.outputTensor = new typedArray(this.outputSize.reduce((a, b) => a * b));
+    this.referenceTensor = new typedArray(this.outputSize.reduce((a, b) => a * b));
 
     let arrayBuffer = await this.loadUrl(this.modelFile, true, true);
     let resultBytes = new Uint8Array(arrayBuffer);
@@ -186,13 +190,112 @@ class Utils {
     let response = await fetch(request);
     let arkFileBuffer = await response.arrayBuffer();
     let value = new Float32Array(arkFileBuffer);
-    tensor = value.subarray(6, 6 + 440);
+    let suba = value.subarray(6, 6 + 440);
+    tensor.set(suba,0);
     console.log("Input tensor", tensor);
   }
 
   downloadArkFile() {
-    // this.outputTensor
-    console.log("Convert output tensor to ark file.");
+    if (!this.outputTensor) {
+        console.error("saveArkFile: No data");
+        return;
+    }
+    let Data = new Float32Array(this.outputTensor);
+    let filename = "output.ark";
+    var blob = new Blob([Data], { type: 'text/json' }),
+        e = document.createEvent('MouseEvents'),
+        a = document.createElement('a');
+    a.download = filename;
+    a.href = window.URL.createObjectURL(blob);
+    a.dataset.downloadurl = ['text/json', a.download, a.href];
+    e.initMouseEvent('click', true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
+    a.dispatchEvent(e);
+    console.log("Converted output tensor to ${filename}.");
+  }
+
+  async loadReferenceArk(referenceTensor,ark) {
+    let request = new Request(ark);
+    let response = await fetch(request);
+    let arkFileBuffer = await response.arrayBuffer();
+    let value = new Float32Array(arkFileBuffer);
+    let suba = value.subarray(6, 6 + 3425);
+    referenceTensor.set(suba,0);
+    console.log("reference tensor", referenceTensor);
+  }
+  async initError(tensor) {
+    tensor.numScores = 0,
+    tensor.numErrors = 0,
+    tensor.threshold = 0.001,
+    tensor.maxError = 0.0,
+    tensor.rmsError = 0.0,
+    tensor.sumError = 0.0,
+    tensor.sumRmsError = 0.0,
+    tensor.sumSquaredError = 0.0,
+    tensor.maxRelError = 0.0,
+    tensor.sumRelError = 0.0,
+    tensor.sumSquaredRelError = 0.0
+}
+
+  async compareScores(outputTensor,referenceTensor,numRows,numColumns) {
+  let numErrors = 0; 
+  await this.initError(this.frameError);
+  for (let i =0; i< numRows; i++) {
+    for (let j =0; j< numColumns; j++) {
+      let score = outputTensor[i*numColumns+j];
+      let refScore = referenceTensor[i * numColumns + j];
+      let error = Math.abs(refScore - score);
+      let rel_error = error / ((Math.abs(refScore)) + 1e-20);
+      let squared_error = error * error;
+      let squared_rel_error = rel_error * rel_error;
+      this.frameError.numScores++;
+      this.frameError.sumError += error;
+      this.frameError.sumSquaredError += squared_error;
+      if (error > this.frameError.maxError) {
+        this.frameError.maxError = error;
+      }
+      this.frameError.sumRelError += rel_error;
+      this.frameError.sumSquaredRelError += squared_rel_error;
+      if (rel_error > this.frameError.maxRelError) {
+        this.frameError.maxRelError = rel_error;
+      }
+      if (error > this.frameError.threshold) {
+        numErrors++;
+      }
+    }
+    }
+    this.frameError.rmsError = Math.sqrt(this.frameError.sumSquaredError / (numRows * numColumns));
+    this.frameError.sumRmsError += this.frameError.rmsError;
+    this.frameError.numErrors = numErrors;
+    return numErrors;
+  }
+
+  async UpdateScoreError(frameError,totalError) {
+    totalError.numErrors += frameError.numErrors;
+    totalError.numScores += frameError.numScores;
+    totalError.sumRmsError += frameError.rmsError;
+    totalError.sumError += frameError.sumError;
+    totalError.sumSquaredError += frameError.sumSquaredError;
+    if (frameError.maxError > totalError.maxError) {
+      totalError.maxError = frameError.maxError;
+    }
+    totalError.sumRelError += frameError.sumRelError;
+    totalError.sumSquaredRelError += frameError.sumSquaredRelError;
+    if (frameError.maxRelError > totalError.maxRelError) {
+      totalError.maxRelError = frameError.maxRelError;
+    }
+  }
+
+  async printReferenceCompareResults(totalError,framesNum) {//framesNum equals to number of frames in one utterance
+  console.log("         max error: ", totalError.maxError);
+  console.log("         avg error: ", totalError.sumError / totalError.numScores);
+  console.log("         avg error of: ", totalError.sumRmsError / framesNum);  
+  console.log("         stdev error: ", await this.StdDevError(totalError));
+  }
+
+  async StdDevError(totalError) {
+  let result = Math.sqrt(totalError.sumSquaredError / totalError.numScores
+               - (totalError.sumError / totalError.numScores) * (totalError.sumError / totalError.numScores));
+  return result;
   }
 
   deleteAll() {
