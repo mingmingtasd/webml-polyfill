@@ -825,9 +825,11 @@ class OpenVINOModelImporter {
         case 'SoftMax': {
           const input = node.inputs[0];
           console.log(`  input shape: [${input.shape()}]`);
+	  const axis = node.getInt('axis');
 
           inputs.push(this._getTensorId(input));
           inputs.push(this._addScalarFloat32(1.0)); // Set beta to 1.0
+          inputs.push(this._addScalarInt32(axis));
 
           // Add output
           const output = node.outputs[0];
@@ -883,6 +885,9 @@ class OpenVINOModelImporter {
           if (align_corners !== 'undefined') {
             inputs.push(this._addScalarInt32(align_corners));
           }
+
+	  // Specify NCHW layout
+          inputs.push(this._addScalarInt32(0))
 
           // Add output
           const outputType = {
@@ -1052,6 +1057,7 @@ class OpenVINOModelImporter {
         inputs = [];
         inputs.push(outputs[0]);
         inputs.push(this._addScalarFloat32(1.0)); // Set beta to 1.0
+        inputs.push(this._addScalarInt32(1)); // Set beta to 1.0
 
         const inDims = node.outputs[0].shape();
         console.log(`SoftMax (appended automatically)`);

@@ -11,6 +11,7 @@ class WebNNRunner extends BaseRunner {
     this._deQuantizeParams = null;
     this._bEagerMode = false;
     this._supportedOps = [];
+    // this._isNCHW = false;
   }
 
   /**
@@ -240,6 +241,7 @@ class WebNNRunner extends BaseRunner {
         break;
       case 'OPENVINO':
         model = new OpenVINOModelImporter(configs);
+	// this._isNCHW = true;
         break;
       case 'CAFFE2':
         model = new Caffe2ModelImporter(configs);
@@ -319,6 +321,7 @@ class WebNNRunner extends BaseRunner {
     image.width = image.videoWidth || image.naturalWidth;
     image.height = image.videoHeight || image.naturalHeight;
 
+    // const [height, width, channels] = options.inputSize;
     const [height, width, channels] = options.inputSize;
     const preOptions = options.preOptions || {};
     const mean = preOptions.mean || [0, 0, 0, 0];
@@ -327,6 +330,9 @@ class WebNNRunner extends BaseRunner {
     const channelScheme = preOptions.channelScheme || 'RGB';
     const imageChannels = options.imageChannels || 4; // RGBA
     const drawOptions = options.drawOptions;
+    const nchwFlag = preOptions.nchwFlag || false;
+    console.log(`nchwFlag: [${nchwFlag}]`);
+    // const nchwFlag = true;
 
     let canvasElement = document.createElement('canvas');
     canvasElement.width = width;
@@ -359,17 +365,28 @@ class WebNNRunner extends BaseRunner {
           for (let h = 0; h < height; ++h) {
             for (let w = 0; w < width; ++w) {
               let value = pixels[h * width * imageChannels + w * imageChannels + c];
-              tensor[h * width * channels + w * channels + c] = (value - mean[c]) / std[c];
+              // tensor[h * width * channels + w * channels + c] = (value - mean[c]) / std[c];
+	      if (nchwFlag) {
+                tensor[c * width * height + h * width + w] = (value - mean[c]) / std[c];
+	      } else {
+		tensor[h * width * channels + w * channels + c] = (value - mean[c]) / std[c];
+	      }
             }
           }
         }
+	
       } else if (channels === 1) {
         for (let c = 0; c < channels; ++c) {
           for (let h = 0; h < height; ++h) {
             for (let w = 0; w < width; ++w) {
               let index = h * width * imageChannels + w * imageChannels + c;
               let value = (pixels[index] + pixels[index + 1] + pixels[index + 2]) / 3;
-              tensor[h * width * channels + w * channels + c] = (value - mean[c]) / std[c];
+              // tensor[h * width * channels + w * channels + c] = (value - mean[c]) / std[c];
+	      if (nchwFlag) {
+                tensor[c * width * height + h * width + w] = (value - mean[c]) / std[c];
+	      } else {
+		tensor[h * width * channels + w * channels + c] = (value - mean[c]) / std[c];
+	      }
             }
           }
         }
@@ -379,7 +396,12 @@ class WebNNRunner extends BaseRunner {
         for (let h = 0; h < height; ++h) {
           for (let w = 0; w < width; ++w) {
             let value = pixels[h * width * imageChannels + w * imageChannels + (channels - c - 1)];
-            tensor[h * width * channels + w * channels + c] = (value - mean[c]) / std[c];
+            // tensor[h * width * channels + w * channels + c] = (value - mean[c]) / std[c];
+	    if (nchwFlag) {
+              tensor[c * width * height + h * width + w] = (value - mean[c]) / std[c];
+            } else {
+	      tensor[h * width * channels + w * channels + c] = (value - mean[c]) / std[c];
+            }
           }
         }
       }
@@ -389,6 +411,7 @@ class WebNNRunner extends BaseRunner {
   };
 
   /**
+   * This method is to get downsample audio buffer.
    * This method is to get downsample audio buffer.
    * @param {!Float32Array} buffer
    * @param {number} rate
