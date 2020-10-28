@@ -44,6 +44,7 @@ class OpenVINOModelImporter {
       backend: this._backend,
       eager: this._bEagerMode,
       supportedOps: this._supportedOps,
+      isOpenVINOModel: true,
     };
     this._model = await this._nn.createModel(options);
 
@@ -89,7 +90,7 @@ class OpenVINOModelImporter {
         this._compilation._preparedModel._deleteAll();
       }
 
-      this._model = await this._nn.createModel({ backend: this._backend });
+      this._model = await this._nn.createModel({ backend: this._backend, isOpenVINOModel: true});
       this._addTensorOperands();
       lastNodeIndex = this._addOpsAndParams(lastNodeIndex);
       const lastNode = graph.nodes[lastNodeIndex];
@@ -824,9 +825,8 @@ class OpenVINOModelImporter {
         } break;
         case 'SoftMax': {
           const input = node.inputs[0];
-          console.log(`  input shape: [${input.shape()}]`);
-	  const axis = node.getInt('axis');
-
+          console.log(` input shape: [${input.shape()}]`);
+          const axis = node.getInt('axis');
           inputs.push(this._getTensorId(input));
           inputs.push(this._addScalarFloat32(1.0)); // Set beta to 1.0
           inputs.push(this._addScalarInt32(axis));
