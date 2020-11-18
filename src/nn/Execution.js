@@ -35,7 +35,7 @@ export default class Execution {
     }
     let operand = model._operands[inputIndex];
     if (!model._validateOperandValue(buffer, operand)) {
-      throw new Error(`Invalid value ${buffer}`);
+      throw new Error(`Invalid value of operands[${inputIndex}]: ${buffer}`);
     }
     if (operand.lifetime !== OperandLifetime.MODEL_INPUT) {
       throw new Error(`Invalid operand lifetime ${operand.lifetime}`);

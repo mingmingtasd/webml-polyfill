@@ -140,7 +140,8 @@ class WebNNRunner extends BaseRunner {
       if (this._currentModelInfo.isDNNL || false) {
         return Int8Array;
       } else if (this._currentModelInfo.isIE || false){
-        return Float32Array;
+        console.log(`=============================`);
+        return Uint8Array;
       } else {
         return Uint8Array;
       }

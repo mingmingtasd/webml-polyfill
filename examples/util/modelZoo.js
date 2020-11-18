@@ -356,8 +356,8 @@ const modelZoo = {
     inputSize: [224, 224, 3],
     outputSize: 1001,
     preOptions: {
-      mean: [127.5, 127.5, 127.5],
-      std: [127.5, 127.5, 127.5],
+      // mean: [127.5, 127.5, 127.5],
+      // std: [127.5, 127.5, 127.5],
       nchwFlag: true,
     },
     intro: 'MobileNetV2 improves the state of the art performance of mobile models.',

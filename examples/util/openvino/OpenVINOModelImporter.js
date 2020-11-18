@@ -273,8 +273,11 @@ class OpenVINOModelImporter {
       const inputName = input.graphId();
       console.log(`${inputName}`);
       const scale = this._inputScaleFactor == undefined ? 1.0 : this._inputScaleFactor;
+      // const inputType = {
+      //   type: this._getTypeCode(input.dataType()), dimensions: input.shape(), scale
+      // };
       const inputType = {
-        type: this._getTypeCode(input.dataType()), dimensions: input.shape(), scale
+        type: this._nn.TENSOR_QUANT8_ASYMM, dimensions: input.shape(), scale
       };
       this._addNamedOperand(inputName, inputType);
     }
